@@ -1,0 +1,11 @@
+[book]
+title = "Don't Panic: A Hitchhiker’s Guide to Software Architecture"
+author = "Adrian Castillo"
+description = "Guía para tomar decisiones arquitectónicas en Ruby y Node.js"
+language = "es"
+multilingual = false
+src = "src"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"

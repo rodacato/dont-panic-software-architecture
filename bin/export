@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -e  # Detener ejecución si hay errores
+
+IMAGE_NAME="mdbook"
+CONTAINER_NAME="mdbook_container"
+BOOK_DIR="$(pwd)/book"
+
+# Manejar interrupción para eliminar el contenedor al presionar Ctrl + C
+cleanup() {
+    echo "🛑 Deteniendo contenedor..."
+    docker stop $CONTAINER_NAME 2>/dev/null || true
+    exit 0
+}
+trap cleanup INT TERM
+
+# Verificar si el directorio del libro existe
+if [ ! -d "$BOOK_DIR" ]; then
+  echo "📚 No se encontró el directorio del libro. Creando estructura inicial..."
+  mkdir -p "$BOOK_DIR"
+  
+  docker run --rm -v "$BOOK_DIR":/home/mdbook/app $IMAGE_NAME mdbook init --title "Don't Panic: Software Architecture"
+fi
+
+# Verificar si los archivos clave existen dentro de src/
+if [ ! -f "$BOOK_DIR/src/SUMMARY.md" ]; then
+  echo "📖 No se encontró SUMMARY.md. Creando estructura inicial..."
+  mkdir -p "$BOOK_DIR/src"
+  echo "# Sumario" > "$BOOK_DIR/src/SUMMARY.md"
+  echo "[Introducción](introduccion.md)" >> "$BOOK_DIR/src/SUMMARY.md"
+  echo "# Introducción" > "$BOOK_DIR/src/introduccion.md"
+  echo "Bienvenido a *Don't Panic: Software Architecture*." >> "$BOOK_DIR/src/introduccion.md"
+fi
+
+echo "🚀 Construyendo la imagen de Docker..."
+docker build -t $IMAGE_NAME .
+
+echo "📖 Generando el libro en formato HTML..."
+docker run --rm -v "$BOOK_DIR":/home/mdbook/app $IMAGE_NAME mdbook build
+
+echo "📘 Generando PDF..."
+docker run --rm -v "$BOOK_DIR":/home/mdbook/app $IMAGE_NAME mdbook build -d pdf
+
+echo "🌍 Sirviendo el libro en http://localhost:3000/"
+docker run --rm -p 3000:3000 -v "$BOOK_DIR":/home/mdbook/app --name $CONTAINER_NAME $IMAGE_NAME mdbook serve --hostname 0.0.0.0 &
+CONTAINER_PID=$!
+
+# Esperar a que el usuario presione Ctrl + C y apagar el contenedor
+wait $CONTAINER_PID
+cleanup
